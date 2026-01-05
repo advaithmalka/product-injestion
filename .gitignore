@@ -1,0 +1,12 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+marketplace.db
+data/raw/
+data/*.db
+dist/
+build/
+*.egg-info/

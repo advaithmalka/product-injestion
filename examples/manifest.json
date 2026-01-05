@@ -1,0 +1,23 @@
+[
+  {
+    "source": "ebay",
+    "url": "https://example.test/ebay/aurora-headphones",
+    "html_path": "../tests/fixtures/ebay/aurora-headphones.html",
+    "source_item_id": "ebay-aurora-headphones",
+    "category": "audio"
+  },
+  {
+    "source": "ebay",
+    "url": "https://example.test/ebay/aurora-headphones-second-observation",
+    "html_path": "../tests/fixtures/ebay/aurora-headphones-second.html",
+    "source_item_id": "ebay-aurora-headphones",
+    "category": "audio"
+  },
+  {
+    "source": "amazon",
+    "url": "https://example.test/amazon/aurora-headphones",
+    "html_path": "../tests/fixtures/amazon/aurora-headphones.html",
+    "source_item_id": "amazon-aurora-headphones",
+    "category": "audio"
+  }
+]

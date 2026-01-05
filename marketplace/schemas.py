@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class ProductExtraction(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    title: str = Field(min_length=1)
+    brand: Optional[str] = None
+    model: Optional[str] = None
+    category: Optional[str] = None
+    description: Optional[str] = None
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    price: Optional[float] = Field(default=None, ge=0)
+    currency: Optional[str] = None
+    availability: Optional[str] = None
+    condition: Optional[str] = None
+    review_count: Optional[int] = Field(default=None, ge=0)
+    rating: Optional[float] = Field(default=None, ge=0, le=5)
+    gtin: Optional[str] = None
+    manufacturer_part_number: Optional[str] = None
+
+    @field_validator("currency")
+    @classmethod
+    def normalize_currency(cls, value: Optional[str]) -> Optional[str]:
+        return value.upper().strip() if value else value
+
+
+class ManifestItem(BaseModel):
+    source: str
+    url: str
+    html_path: Optional[str] = None
+    source_item_id: Optional[str] = None
+    category: Optional[str] = None

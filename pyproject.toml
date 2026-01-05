@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marketplace-product-intelligence"
+version = "0.1.0"
+description = "Fixture-driven marketplace HTML ingestion and product trend signals"
+requires-python = ">=3.9"
+dependencies = [
+  "beautifulsoup4>=4.12",
+  "flask>=3.0",
+  "openai>=1.40",
+  "pandas>=2.2",
+  "pydantic>=2.7",
+  "python-dotenv>=1.0",
+  "selenium>=4.20",
+  "sqlalchemy>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.6",
+]
+
+[project.scripts]
+marketplace-ingest = "marketplace.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.setuptools.packages.find]
+include = ["marketplace*"]
