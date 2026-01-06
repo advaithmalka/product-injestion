@@ -33,6 +33,15 @@ One attempt to derive structured fields from a source page, including the model,
 **Ingestion Run**:
 A reproducible batch execution defined by one Page Manifest, containing per-page successes, failures, and collected evidence.
 
+**Page Attempt**:
+A single attempt to collect and process one source page within an Ingestion Run, with its own status, timing, evidence path, and error information.
+
+**Dead Letter**:
+A page attempt that exhausted recovery options and was retained for later inspection or replay instead of being silently discarded.
+
+**Product Match Candidate**:
+A reviewable proposed relationship between a Source Listing and an existing Canonical Product when identity evidence is insufficient for an automatic match.
+
 **Normalized Attribute**:
 A product or offer field converted into the system's canonical representation, such as a numeric price in a declared currency or a standardized unit.
 

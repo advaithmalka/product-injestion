@@ -10,10 +10,13 @@ requires-python = ">=3.9"
 dependencies = [
   "beautifulsoup4>=4.12",
   "flask>=3.0",
+  "gunicorn>=22.0",
   "openai>=1.40",
   "pandas>=2.2",
+  "prometheus-client>=0.20",
   "pydantic>=2.7",
   "python-dotenv>=1.0",
+  "psycopg[binary]>=3.2",
   "selenium>=4.20",
   "sqlalchemy>=2.0",
 ]

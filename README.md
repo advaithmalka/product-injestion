@@ -31,6 +31,24 @@ flask --app marketplace.app run --debug
 
 The sample manifest uses local HTML fixtures, so the ingestion command works without Selenium or an API key.
 
+## PostgreSQL and Docker
+
+The API and database can run together with Docker Compose:
+
+```bash
+cp .env.example .env
+# Add OPENAI_API_KEY and OPENAI_MODEL to .env for LLM runs.
+docker compose up --build
+```
+
+The API is available at `http://127.0.0.1:8000`. PostgreSQL data is persisted in the `postgres_data` volume and raw HTML is mounted at `./data`. Do not commit `.env` or paste resolved Compose configuration into logs because it contains secrets.
+
+To run a fixture ingestion against the Compose database from inside the API container:
+
+```bash
+docker compose exec api marketplace-ingest --manifest examples/manifest.json
+```
+
 To run the optional LLM extraction experiment, put your key in `.env`, set `OPENAI_MODEL` to a model available at the compatible endpoint, and run:
 
 ```bash
