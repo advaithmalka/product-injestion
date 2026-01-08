@@ -6,4 +6,16 @@ def test_health_endpoint(tmp_path):
     client = app.test_client()
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json == {"status": "ok"}
+    assert response.json == {"status": "ok", "database": "ok"}
+
+
+def test_metrics_and_paginated_products_endpoints(tmp_path):
+    app = create_app(f"sqlite:///{tmp_path / 'api.db'}")
+    client = app.test_client()
+
+    products = client.get("/api/v1/products?limit=2&offset=0")
+    metrics = client.get("/api/v1/metrics")
+    assert products.status_code == 200
+    assert products.json == {"items": [], "limit": 2, "offset": 0}
+    assert metrics.status_code == 200
+    assert b"marketplace_pages_total" in metrics.data

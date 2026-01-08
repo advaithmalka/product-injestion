@@ -4,7 +4,7 @@ from pathlib import Path
 from marketplace.collectors import FixturePageCollector
 from marketplace.config import Settings
 from marketplace.db import session_scope
-from marketplace.models import ExtractionRun, Observation, Product, SourceListing
+from marketplace.models import DeadLetter, ExtractionRun, IngestionRun, Observation, PageAttempt, Product, SourceListing
 from marketplace.llm import LLMResult
 from marketplace.pipeline import run_ingestion
 from marketplace.schemas import ProductExtraction
@@ -30,6 +30,11 @@ class MinimalExtractor:
             raw_response={"content": '{"title":"Aurora Wireless Headphones"}'},
             model="test-model",
         )
+
+
+class AlwaysFailCollector:
+    def collect(self, url, html_path=None):
+        raise TimeoutError("permanent source timeout")
 
 
 def test_fixture_ingestion_is_reproducible(tmp_path):
@@ -91,5 +96,36 @@ def test_llm_nulls_do_not_erase_parser_fields(tmp_path):
         assert product.brand == "Aurora"
         assert product.model == "A-100"
         assert observation.price == 79.99
+    finally:
+        session.close()
+
+
+def test_run_id_is_idempotent(tmp_path):
+    config = Settings(database_url=f"sqlite:///{tmp_path / 'idempotency.db'}", raw_html_dir=str(tmp_path / "raw"))
+    first = run_ingestion("examples/manifest.json", FixturePageCollector(), config, run_id="fixed-run")
+    second = run_ingestion("examples/manifest.json", FixturePageCollector(), config, run_id="fixed-run")
+
+    assert first == second
+    session = session_scope(config.database_url)
+    try:
+        assert session.query(IngestionRun).count() == 1
+        assert session.query(Observation).count() == 3
+    finally:
+        session.close()
+
+
+def test_failed_page_is_recorded_as_dead_letter(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps([{"source": "ebay", "url": "https://example.test/fails"}]))
+    config = Settings(database_url=f"sqlite:///{tmp_path / 'dead-letter.db'}", raw_html_dir=str(tmp_path / "raw"))
+    result = run_ingestion(manifest, AlwaysFailCollector(), config, max_retries=1)
+
+    assert result["succeeded"] == 0
+    assert result["failed"] == 1
+    assert result["dead_letters"] == 1
+    session = session_scope(config.database_url)
+    try:
+        assert session.query(PageAttempt).count() == 2
+        assert session.query(DeadLetter).count() == 1
     finally:
         session.close()

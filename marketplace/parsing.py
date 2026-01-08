@@ -53,20 +53,33 @@ def parse_html(source: str, html: str, url: str) -> ProductExtraction:
     if isinstance(brand, dict):
         brand = brand.get("name")
     identifier = ld.get("gtin13") or ld.get("gtin12") or ld.get("gtin")
+    extracted = {
+        "title": str(title),
+        "brand": brand or _first_text(soup, ["[data-brand]", ".brand"]),
+        "model": ld.get("model") or _first_text(soup, ["[data-model]", ".model"]),
+        "category": ld.get("category") or _first_text(soup, ["[data-category]", ".category"]),
+        "description": ld.get("description") or _first_text(soup, ["meta[name='description']", ".description"]),
+        "price": _number(offers.get("price")) or _number(_first_text(soup, ["[data-price]", ".price"])),
+        "currency": offers.get("priceCurrency") or _first_text(soup, ["[data-currency]", ".currency"]),
+        "availability": offers.get("availability") or _first_text(soup, ["[data-availability]", ".availability"]),
+        "condition": offers.get("itemCondition") or _first_text(soup, ["[data-condition]", ".condition"]),
+        "review_count": int(aggregate["reviewCount"]) if aggregate.get("reviewCount") else None,
+        "rating": _number(aggregate.get("ratingValue")),
+        "gtin": str(identifier) if identifier else None,
+        "manufacturer_part_number": ld.get("mpn") or _first_text(soup, ["[data-mpn]", ".mpn"]),
+    }
+    method = "json-ld" if ld else "html-selector"
+    evidence = {
+        field: {"method": method, "source": source, "url": url, "value": str(value)}
+        for field, value in extracted.items()
+        if value is not None
+    }
+    confidence = {field: 1.0 if method == "json-ld" else 0.7 for field in evidence}
     return ProductExtraction(
-        title=str(title),
-        brand=brand or _first_text(soup, ["[data-brand]", ".brand"]),
-        model=ld.get("model") or _first_text(soup, ["[data-model]", ".model"]),
-        category=ld.get("category") or _first_text(soup, ["[data-category]", ".category"]),
-        description=ld.get("description") or _first_text(soup, ["meta[name='description']", ".description"]),
-        price=_number(offers.get("price")) or _number(_first_text(soup, ["[data-price]", ".price"])),
-        currency=offers.get("priceCurrency") or _first_text(soup, ["[data-currency]", ".currency"]),
-        availability=offers.get("availability") or _first_text(soup, ["[data-availability]", ".availability"]),
-        condition=offers.get("itemCondition") or _first_text(soup, ["[data-condition]", ".condition"]),
-        review_count=int(aggregate["reviewCount"]) if aggregate.get("reviewCount") else None,
-        rating=_number(aggregate.get("ratingValue")),
-        gtin=str(identifier) if identifier else None,
+        **extracted,
         attributes={"source": source, "url": url},
+        evidence=evidence,
+        confidence=confidence,
     )
 
 

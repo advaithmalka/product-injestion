@@ -16,6 +16,8 @@ def normalize_text(value: str | None) -> str:
 def canonical_key(extraction: ProductExtraction) -> str:
     if extraction.gtin:
         return f"gtin:{normalize_text(extraction.gtin)}"
+    if extraction.brand and extraction.manufacturer_part_number:
+        return f"brand-mpn:{normalize_text(extraction.brand)}:{normalize_text(extraction.manufacturer_part_number)}"
     if extraction.brand and extraction.model:
         return f"brand-model:{normalize_text(extraction.brand)}:{normalize_text(extraction.model)}"
     return f"title:{normalize_text(extraction.title)}"
