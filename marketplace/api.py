@@ -4,6 +4,7 @@ from typing import Any
 
 from flask import Flask, jsonify, request
 from sqlalchemy import select, text
+from werkzeug.exceptions import HTTPException
 
 from marketplace.config import settings
 from marketplace.db import initialize_database, session_scope
@@ -66,14 +67,18 @@ def create_app(database_url: str | None = None) -> Flask:
     configure_logging()
     app = Flask(__name__)
     db_url = database_url or settings.database_url
-    initialize_database(db_url)
+    initialize_database(db_url, create_schema=settings.auto_create_schema)
 
     @app.errorhandler(ValueError)
     def bad_request(error: ValueError):
         return jsonify({"error": str(error)}), 400
 
+    @app.errorhandler(HTTPException)
+    def http_error(error: HTTPException):
+        return jsonify({"error": error.description}), error.code
+
     @app.errorhandler(Exception)
-    def unexpected_error(error: Exception):  # noqa: BLE001 - final HTTP boundary
+    def unexpected_error(error: Exception):
         app.logger.exception("request failed")
         return jsonify({"error": "internal server error"}), 500
 
@@ -107,7 +112,13 @@ def create_app(database_url: str | None = None) -> Flask:
             if search:
                 query = query.where(Product.title.ilike(f"%{search}%"))
             values = session.scalars(query.offset(offset).limit(limit)).unique().all()
-            return jsonify({"items": [_product_json(product) for product in values], "limit": limit, "offset": offset})
+            return jsonify(
+                {
+                    "items": [_product_json(product) for product in values],
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
         finally:
             session.close()
 
@@ -130,7 +141,9 @@ def create_app(database_url: str | None = None) -> Flask:
         session = session_scope(db_url)
         try:
             values = trend_signals(session)
-            return jsonify({"items": values[offset : offset + limit], "limit": limit, "offset": offset})
+            return jsonify(
+                {"items": values[offset : offset + limit], "limit": limit, "offset": offset}
+            )
         finally:
             session.close()
 
@@ -141,7 +154,10 @@ def create_app(database_url: str | None = None) -> Flask:
         session = session_scope(db_url)
         try:
             values = session.scalars(
-                select(IngestionRun).order_by(IngestionRun.started_at.desc()).offset(offset).limit(limit)
+                select(IngestionRun)
+                .order_by(IngestionRun.started_at.desc())
+                .offset(offset)
+                .limit(limit)
             ).all()
             return jsonify(
                 {
@@ -176,7 +192,10 @@ def create_app(database_url: str | None = None) -> Flask:
         session = session_scope(db_url)
         try:
             values = session.scalars(
-                select(ExtractionRun).order_by(ExtractionRun.created_at.desc()).offset(offset).limit(limit)
+                select(ExtractionRun)
+                .order_by(ExtractionRun.created_at.desc())
+                .offset(offset)
+                .limit(limit)
             ).all()
             return jsonify(
                 {

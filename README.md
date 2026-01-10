@@ -49,6 +49,8 @@ To run a fixture ingestion against the Compose database from inside the API cont
 docker compose exec api marketplace-ingest --manifest examples/manifest.json
 ```
 
+The container runs `alembic upgrade head` before Gunicorn starts. Use a stable `--run-id` when a batch should be idempotent; a completed run with the same ID is returned without duplicating observations.
+
 To run the optional LLM extraction experiment, put your key in `.env`, set `OPENAI_MODEL` to a model available at the compatible endpoint, and run:
 
 ```bash
@@ -64,6 +66,12 @@ curl http://127.0.0.1:5000/health
 curl http://127.0.0.1:5000/products
 curl http://127.0.0.1:5000/trends
 curl http://127.0.0.1:5000/runs
+```
+
+Additional operational endpoints include `/metrics`, `/extractions`, and `/match-candidates`. Extraction evaluation can be run locally with:
+
+```bash
+marketplace-evaluate --gold examples/gold_extractions.json
 ```
 
 ## Resume-worthy extension path

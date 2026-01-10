@@ -4,8 +4,17 @@ from pathlib import Path
 from marketplace.collectors import FixturePageCollector
 from marketplace.config import Settings
 from marketplace.db import session_scope
-from marketplace.models import DeadLetter, ExtractionRun, IngestionRun, Observation, PageAttempt, Product, SourceListing
 from marketplace.llm import LLMResult
+from marketplace.models import (
+    DeadLetter,
+    ExtractionRun,
+    IngestionRun,
+    Observation,
+    PageAttempt,
+    Product,
+    ProductMatchCandidate,
+    SourceListing,
+)
 from marketplace.pipeline import run_ingestion
 from marketplace.schemas import ProductExtraction
 from marketplace.trends import trend_signals
@@ -38,7 +47,6 @@ class AlwaysFailCollector:
 
 
 def test_fixture_ingestion_is_reproducible(tmp_path):
-    manifest = json.loads(Path("examples/manifest.json").read_text())
     db_path = tmp_path / "test.db"
     config = Settings(database_url=f"sqlite:///{db_path}", raw_html_dir=str(tmp_path / "raw"))
     result = run_ingestion("examples/manifest.json", FixturePageCollector(), config)
@@ -51,7 +59,9 @@ def test_fixture_ingestion_is_reproducible(tmp_path):
         assert session.query(SourceListing).count() == 2
         assert session.query(Observation).count() == 3
         assert session.query(ExtractionRun).count() == 3
-        assert all(Path(path).exists() for path, in session.query(SourceListing.raw_html_path).all())
+        assert all(
+            Path(path).exists() for (path,) in session.query(SourceListing.raw_html_path).all()
+        )
         signals = trend_signals(session)
         assert signals[0]["sources"] == ["amazon", "ebay"]
         assert signals[0]["review_growth"] == 10
@@ -85,8 +95,12 @@ def test_llm_nulls_do_not_erase_parser_fields(tmp_path):
             ]
         )
     )
-    config = Settings(database_url=f"sqlite:///{tmp_path / 'merge.db'}", raw_html_dir=str(tmp_path / "raw"))
-    result = run_ingestion(manifest, FixturePageCollector(), config, MinimalExtractor(), max_retries=0)
+    config = Settings(
+        database_url=f"sqlite:///{tmp_path / 'merge.db'}", raw_html_dir=str(tmp_path / "raw")
+    )
+    result = run_ingestion(
+        manifest, FixturePageCollector(), config, MinimalExtractor(), max_retries=0
+    )
 
     assert result["succeeded"] == 1
     session = session_scope(config.database_url)
@@ -101,9 +115,15 @@ def test_llm_nulls_do_not_erase_parser_fields(tmp_path):
 
 
 def test_run_id_is_idempotent(tmp_path):
-    config = Settings(database_url=f"sqlite:///{tmp_path / 'idempotency.db'}", raw_html_dir=str(tmp_path / "raw"))
-    first = run_ingestion("examples/manifest.json", FixturePageCollector(), config, run_id="fixed-run")
-    second = run_ingestion("examples/manifest.json", FixturePageCollector(), config, run_id="fixed-run")
+    config = Settings(
+        database_url=f"sqlite:///{tmp_path / 'idempotency.db'}", raw_html_dir=str(tmp_path / "raw")
+    )
+    first = run_ingestion(
+        "examples/manifest.json", FixturePageCollector(), config, run_id="fixed-run"
+    )
+    second = run_ingestion(
+        "examples/manifest.json", FixturePageCollector(), config, run_id="fixed-run"
+    )
 
     assert first == second
     session = session_scope(config.database_url)
@@ -117,7 +137,9 @@ def test_run_id_is_idempotent(tmp_path):
 def test_failed_page_is_recorded_as_dead_letter(tmp_path):
     manifest = tmp_path / "manifest.json"
     manifest.write_text(json.dumps([{"source": "ebay", "url": "https://example.test/fails"}]))
-    config = Settings(database_url=f"sqlite:///{tmp_path / 'dead-letter.db'}", raw_html_dir=str(tmp_path / "raw"))
+    config = Settings(
+        database_url=f"sqlite:///{tmp_path / 'dead-letter.db'}", raw_html_dir=str(tmp_path / "raw")
+    )
     result = run_ingestion(manifest, AlwaysFailCollector(), config, max_retries=1)
 
     assert result["succeeded"] == 0
@@ -127,5 +149,45 @@ def test_failed_page_is_recorded_as_dead_letter(tmp_path):
     try:
         assert session.query(PageAttempt).count() == 2
         assert session.query(DeadLetter).count() == 1
+    finally:
+        session.close()
+
+
+def test_fuzzy_match_is_reviewable(tmp_path):
+    first = tmp_path / "first.html"
+    second = tmp_path / "second.html"
+    first.write_text(
+        '<script type="application/ld+json">'
+        '{"@type":"Product","name":"Acme Noise Cancel Headphones",'
+        '"brand":{"name":"Acme"},"offers":{"price":"50","priceCurrency":"USD"}}'
+        "</script>"
+    )
+    second.write_text(
+        '<script type="application/ld+json">'
+        '{"@type":"Product","name":"Acme Noise Cancelling Headphones",'
+        '"brand":{"name":"Acme"},"offers":{"price":"52","priceCurrency":"USD"}}'
+        "</script>"
+    )
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                {"source": "ebay", "url": "https://example.test/1", "html_path": str(first)},
+                {"source": "amazon", "url": "https://example.test/2", "html_path": str(second)},
+            ]
+        )
+    )
+    config = Settings(
+        database_url=f"sqlite:///{tmp_path / 'matching.db'}", raw_html_dir=str(tmp_path / "raw")
+    )
+    result = run_ingestion(manifest, FixturePageCollector(), config)
+
+    assert result["succeeded"] == 2
+    session = session_scope(config.database_url)
+    try:
+        candidate = session.query(ProductMatchCandidate).one()
+        assert candidate.status == "pending"
+        assert candidate.method == "normalized-title-fuzzy"
+        assert candidate.score >= 0.75
     finally:
         session.close()

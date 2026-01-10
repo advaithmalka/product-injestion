@@ -10,9 +10,15 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_
 logger = logging.getLogger("marketplace")
 
 pages_total = Counter("marketplace_pages_total", "Pages processed", ["source", "status"])
-page_retries_total = Counter("marketplace_page_retries_total", "Page collection retries", ["source"])
-llm_requests_total = Counter("marketplace_llm_requests_total", "LLM extraction attempts", ["status"])
-page_duration_seconds = Histogram("marketplace_page_duration_seconds", "Page processing duration", ["source"])
+page_retries_total = Counter(
+    "marketplace_page_retries_total", "Page collection retries", ["source"]
+)
+llm_requests_total = Counter(
+    "marketplace_llm_requests_total", "LLM extraction attempts", ["status"]
+)
+page_duration_seconds = Histogram(
+    "marketplace_page_duration_seconds", "Page processing duration", ["source"]
+)
 
 
 class JsonFormatter(logging.Formatter):

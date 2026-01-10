@@ -23,7 +23,9 @@ class Product(Base):
     brand: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     model: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     gtin: Mapped[Optional[str]] = mapped_column(String(50), nullable=True, index=True)
-    manufacturer_part_number: Mapped[Optional[str]] = mapped_column(String(200), nullable=True, index=True)
+    manufacturer_part_number: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True, index=True
+    )
     category: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
@@ -32,7 +34,8 @@ class Product(Base):
 
     listings: Mapped[list["SourceListing"]] = relationship(back_populates="product")
     match_candidates: Mapped[list["ProductMatchCandidate"]] = relationship(
-        back_populates="candidate_product", foreign_keys="ProductMatchCandidate.candidate_product_id"
+        back_populates="candidate_product",
+        foreign_keys="ProductMatchCandidate.candidate_product_id",
     )
 
 
@@ -58,7 +61,9 @@ class IngestionRun(Base):
 
 class PageAttempt(Base):
     __tablename__ = "page_attempts"
-    __table_args__ = (UniqueConstraint("ingestion_run_id", "page_key", "attempt_number", name="uq_page_attempt"),)
+    __table_args__ = (
+        UniqueConstraint("ingestion_run_id", "page_key", "attempt_number", name="uq_page_attempt"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), index=True)
@@ -81,7 +86,9 @@ class DeadLetter(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     ingestion_run_id: Mapped[int] = mapped_column(ForeignKey("ingestion_runs.id"), index=True)
-    page_attempt_id: Mapped[Optional[int]] = mapped_column(ForeignKey("page_attempts.id"), nullable=True)
+    page_attempt_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("page_attempts.id"), nullable=True
+    )
     page_key: Mapped[str] = mapped_column(String(255), index=True)
     source: Mapped[str] = mapped_column(String(50))
     source_item_id: Mapped[str] = mapped_column(String(255))
@@ -112,12 +119,16 @@ class SourceListing(Base):
     product: Mapped[Product] = relationship(back_populates="listings")
     observations: Mapped[list["Observation"]] = relationship(back_populates="listing")
     extraction_runs: Mapped[list["ExtractionRun"]] = relationship(back_populates="listing")
-    match_candidates: Mapped[list["ProductMatchCandidate"]] = relationship(back_populates="source_listing")
+    match_candidates: Mapped[list["ProductMatchCandidate"]] = relationship(
+        back_populates="source_listing"
+    )
 
 
 class ProductMatchCandidate(Base):
     __tablename__ = "product_match_candidates"
-    __table_args__ = (UniqueConstraint("source_listing_id", "candidate_product_id", name="uq_match_candidate"),)
+    __table_args__ = (
+        UniqueConstraint("source_listing_id", "candidate_product_id", name="uq_match_candidate"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     source_listing_id: Mapped[int] = mapped_column(ForeignKey("source_listings.id"), index=True)
@@ -138,7 +149,9 @@ class Observation(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     listing_id: Mapped[int] = mapped_column(ForeignKey("source_listings.id"), index=True)
-    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    observed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
     price: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     currency: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
     availability: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
@@ -153,9 +166,15 @@ class ExtractionRun(Base):
     __tablename__ = "extraction_runs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    listing_id: Mapped[Optional[int]] = mapped_column(ForeignKey("source_listings.id"), nullable=True, index=True)
-    ingestion_run_id: Mapped[Optional[int]] = mapped_column(ForeignKey("ingestion_runs.id"), nullable=True, index=True)
-    page_attempt_id: Mapped[Optional[int]] = mapped_column(ForeignKey("page_attempts.id"), nullable=True, index=True)
+    listing_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("source_listings.id"), nullable=True, index=True
+    )
+    ingestion_run_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("ingestion_runs.id"), nullable=True, index=True
+    )
+    page_attempt_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("page_attempts.id"), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(String(30), index=True)
     model: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
     prompt_version: Mapped[str] = mapped_column(String(50), default="v1")
@@ -165,6 +184,8 @@ class ExtractionRun(Base):
     field_confidence: Mapped[dict[str, float]] = mapped_column(JSON, default=dict)
     fallback_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     error: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, index=True
+    )
 
     listing: Mapped[Optional[SourceListing]] = relationship(back_populates="extraction_runs")

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
 class Base(DeclarativeBase):
@@ -17,11 +17,12 @@ def make_session_factory(database_url: str):
     return sessionmaker(bind=make_engine(database_url), expire_on_commit=False)
 
 
-def initialize_database(database_url: str):
+def initialize_database(database_url: str, create_schema: bool = True):
     from marketplace import models  # noqa: F401
 
     engine = make_engine(database_url)
-    Base.metadata.create_all(engine)
+    if create_schema:
+        Base.metadata.create_all(engine)
     return engine
 
 

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 import time
 import uuid
 from datetime import datetime, timezone
@@ -71,7 +70,10 @@ def _page_key(item: ManifestItem) -> str:
 
 def _validation_errors(error: Exception) -> list[str]:
     if isinstance(error, ValidationError):
-        return [f"{'.'.join(str(part) for part in detail['loc'])}: {detail['msg']}" for detail in error.errors()]
+        return [
+            f"{'.'.join(str(part) for part in detail['loc'])}: {detail['msg']}"
+            for detail in error.errors()
+        ]
     return [str(error)]
 
 
@@ -98,7 +100,9 @@ def _find_or_create_product(
         product.brand = extraction.brand or product.brand
         product.model = extraction.model or product.model
         product.gtin = extraction.gtin or product.gtin
-        product.manufacturer_part_number = extraction.manufacturer_part_number or product.manufacturer_part_number
+        product.manufacturer_part_number = (
+            extraction.manufacturer_part_number or product.manufacturer_part_number
+        )
         product.category = extraction.category or product.category
         product.description = extraction.description or product.description
         product.attributes = {**(product.attributes or {}), **(extraction.attributes or {})}
@@ -129,7 +133,9 @@ def _find_or_create_product(
 def _save_raw_html(raw_dir: str, run_id: str, item: ManifestItem, html: str) -> str:
     destination = Path(raw_dir) / run_id
     destination.mkdir(parents=True, exist_ok=True)
-    filename = f"{normalize_text(item.source)}-{hashlib.sha256(item.url.encode()).hexdigest()[:16]}.html"
+    filename = (
+        f"{normalize_text(item.source)}-{hashlib.sha256(item.url.encode()).hexdigest()[:16]}.html"
+    )
     path = destination / filename
     path.write_text(html, encoding="utf-8")
     return str(path)
@@ -164,7 +170,12 @@ def _collect_with_retry(
             attempt.finished_at = datetime.now(timezone.utc)
             logger.info(
                 "page collected",
-                extra={"run_id": run_id, "source": item.source, "url": item.url, "page_key": _page_key(item)},
+                extra={
+                    "run_id": run_id,
+                    "source": item.source,
+                    "url": item.url,
+                    "page_key": _page_key(item),
+                },
             )
             return html, attempt, None
         except Exception as exc:  # noqa: BLE001 - batch boundary records arbitrary adapter failures
@@ -203,28 +214,33 @@ def _merge_extractions(baseline: ProductExtraction, llm_result: LLMResult) -> Pr
     llm_data = llm_result.extraction.model_dump()
     merged = {
         **baseline_data,
-        **{
-            key: value
-            for key, value in llm_data.items()
-            if value is not None and value != {}
-        },
+        **{key: value for key, value in llm_data.items() if value is not None and value != {}},
     }
     merged["evidence"] = {**baseline.evidence, **llm_result.extraction.evidence}
     merged["confidence"] = {**baseline.confidence, **llm_result.extraction.confidence}
     return ProductExtraction.model_validate(merged)
 
 
-def _record_candidates(session: Session, listing: SourceListing, candidates: list[tuple[Product, float]]) -> None:
+def _record_candidates(
+    session: Session, listing: SourceListing, candidates: list[tuple[Product, float]]
+) -> None:
     for product, score in candidates:
-        session.add(
-            ProductMatchCandidate(
-                source_listing_id=listing.id,
-                candidate_product_id=product.id,
-                score=score,
-                method="normalized-title-fuzzy",
-                status="pending",
+        existing = session.scalar(
+            select(ProductMatchCandidate).where(
+                ProductMatchCandidate.source_listing_id == listing.id,
+                ProductMatchCandidate.candidate_product_id == product.id,
             )
         )
+        if not existing:
+            session.add(
+                ProductMatchCandidate(
+                    source_listing_id=listing.id,
+                    candidate_product_id=product.id,
+                    score=score,
+                    method="normalized-title-fuzzy",
+                    status="pending",
+                )
+            )
 
 
 def _summary(run: IngestionRun) -> dict[str, Any]:
@@ -248,9 +264,11 @@ def run_ingestion(
     max_retries: int = 2,
     run_id: str | None = None,
 ) -> dict:
-    initialize_database(config.database_url)
+    initialize_database(config.database_url, create_schema=config.auto_create_schema)
     items = load_manifest(manifest_path)
-    run_id = run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    run_id = (
+        run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "-" + uuid.uuid4().hex[:8]
+    )
     manifest_hash = _manifest_hash(manifest_path)
     session: Session = session_scope(config.database_url)
     try:
@@ -290,7 +308,12 @@ def run_ingestion(
                     pages_total.labels(source=item.source, status="failed").inc()
                     logger.error(
                         "page moved to dead letter",
-                        extra={"run_id": run_id, "source": item.source, "url": item.url, "error": collection_error},
+                        extra={
+                            "run_id": run_id,
+                            "source": item.source,
+                            "url": item.url,
+                            "error": collection_error,
+                        },
                     )
                     session.commit()
                     continue
@@ -302,14 +325,18 @@ def run_ingestion(
                 llm_result: Optional[LLMResult] = None
                 fallback_reason: Optional[str] = None
                 if extractor:
-                    llm_result, fallback_reason = _extract_with_retry(extractor, item, html, max_retries)
+                    llm_result, fallback_reason = _extract_with_retry(
+                        extractor, item, html, max_retries
+                    )
                 extraction = _merge_extractions(baseline, llm_result) if llm_result else baseline
                 extraction_run = ExtractionRun(
                     status="succeeded" if llm_result or not extractor else "fallback",
-                    model=llm_result.model if llm_result else (config.openai_model if extractor else "baseline-parser"),
+                    model=llm_result.model
+                    if llm_result
+                    else (config.openai_model if extractor else "baseline-parser"),
                     prompt_version=llm_result.prompt_version if llm_result else "baseline",
                     raw_response=llm_result.raw_response if llm_result else extraction.model_dump(),
-                    validation_errors=_validation_errors(Exception(fallback_reason)) if fallback_reason else [],
+                    validation_errors=[],
                     field_provenance=extraction.evidence,
                     field_confidence=extraction.confidence,
                     fallback_reason=fallback_reason,
@@ -332,7 +359,10 @@ def run_ingestion(
                         product_id=product.id,
                         title=extraction.title,
                         raw_html_path=raw_path,
-                        source_metadata={"manifest": str(manifest_path), "manifest_hash": manifest_hash},
+                        source_metadata={
+                            "manifest": str(manifest_path),
+                            "manifest_hash": manifest_hash,
+                        },
                     )
                     session.add(listing)
                     session.flush()
@@ -364,7 +394,9 @@ def run_ingestion(
                 pages_total.labels(source=item.source, status="succeeded").inc()
                 session.commit()
 
-        ingestion_run.status = "completed_with_errors" if ingestion_run.failed_pages else "completed"
+        ingestion_run.status = (
+            "completed_with_errors" if ingestion_run.failed_pages else "completed"
+        )
         ingestion_run.finished_at = datetime.now(timezone.utc)
         ingestion_run.summary = _summary(ingestion_run)
         session.commit()

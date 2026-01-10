@@ -1,0 +1,32 @@
+[
+  {
+    "source": "ebay",
+    "url": "https://example.test/ebay/aurora-headphones",
+    "html_path": "../tests/fixtures/ebay/aurora-headphones.html",
+    "expected": {
+      "title": "Aurora Wireless Headphones",
+      "brand": "Aurora",
+      "model": "A-100",
+      "category": "audio",
+      "price": 79.99,
+      "currency": "USD",
+      "availability": "InStock",
+      "review_count": 120
+    }
+  },
+  {
+    "source": "amazon",
+    "url": "https://example.test/amazon/aurora-headphones",
+    "html_path": "../tests/fixtures/amazon/aurora-headphones.html",
+    "expected": {
+      "title": "Aurora Wireless Headphones",
+      "brand": "Aurora",
+      "model": "A-100",
+      "category": "audio",
+      "price": 82.0,
+      "currency": "USD",
+      "availability": "InStock",
+      "review_count": 130
+    }
+  }
+]

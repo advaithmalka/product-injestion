@@ -16,6 +16,11 @@ class Settings:
     openai_api_key: str | None = os.getenv("OPENAI_API_KEY") or None
     openai_base_url: str = os.getenv("OPENAI_BASE_URL", "https://llm.arc.vt.edu/")
     openai_model: str | None = os.getenv("OPENAI_MODEL") or None
+    auto_create_schema: bool = os.getenv("AUTO_CREATE_SCHEMA", "true").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
     @property
     def normalized_openai_base_url(self) -> str:

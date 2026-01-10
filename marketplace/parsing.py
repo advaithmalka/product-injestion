@@ -8,6 +8,21 @@ from bs4 import BeautifulSoup
 
 from marketplace.schemas import ProductExtraction
 
+SOURCE_SELECTORS = {
+    "ebay": {
+        "title": ["#itemTitle", "h1"],
+        "price": [".x-price-primary", "[data-price]", ".price"],
+        "availability": [".d-quantity__availability", "[data-availability]", ".availability"],
+        "review_count": [".reviews", "[data-review-count]"],
+    },
+    "amazon": {
+        "title": ["#productTitle", "h1"],
+        "price": [".a-price .a-offscreen", "[data-price]", ".price"],
+        "availability": ["#availability", "[data-availability]", ".availability"],
+        "review_count": ["#acrCustomerReviewText", "[data-review-count]"],
+    },
+}
+
 
 def _first_text(soup: BeautifulSoup, selectors: list[str]) -> str | None:
     for selector in selectors:
@@ -45,7 +60,10 @@ def parse_html(source: str, html: str, url: str) -> ProductExtraction:
     ld = _json_ld(soup)
     offers = ld.get("offers", {}) if isinstance(ld.get("offers"), dict) else {}
     aggregate = ld.get("aggregateRating", {}) if isinstance(ld.get("aggregateRating"), dict) else {}
-    title = ld.get("name") or _first_text(soup, ["h1", "meta[property='og:title']", "title"])
+    selectors = SOURCE_SELECTORS.get(source.lower(), {})
+    title = ld.get("name") or _first_text(
+        soup, selectors.get("title", []) + ["meta[property='og:title']", "title"]
+    )
     if not title:
         raise ValueError(f"Could not find a title for {url}")
 
@@ -58,12 +76,21 @@ def parse_html(source: str, html: str, url: str) -> ProductExtraction:
         "brand": brand or _first_text(soup, ["[data-brand]", ".brand"]),
         "model": ld.get("model") or _first_text(soup, ["[data-model]", ".model"]),
         "category": ld.get("category") or _first_text(soup, ["[data-category]", ".category"]),
-        "description": ld.get("description") or _first_text(soup, ["meta[name='description']", ".description"]),
-        "price": _number(offers.get("price")) or _number(_first_text(soup, ["[data-price]", ".price"])),
-        "currency": offers.get("priceCurrency") or _first_text(soup, ["[data-currency]", ".currency"]),
-        "availability": offers.get("availability") or _first_text(soup, ["[data-availability]", ".availability"]),
-        "condition": offers.get("itemCondition") or _first_text(soup, ["[data-condition]", ".condition"]),
-        "review_count": int(aggregate["reviewCount"]) if aggregate.get("reviewCount") else None,
+        "description": ld.get("description")
+        or _first_text(soup, ["meta[name='description']", ".description"]),
+        "price": _number(offers.get("price"))
+        or _number(_first_text(soup, selectors.get("price", []) + ["[data-price]", ".price"])),
+        "currency": offers.get("priceCurrency")
+        or _first_text(soup, ["[data-currency]", ".currency"]),
+        "availability": offers.get("availability")
+        or _first_text(
+            soup, selectors.get("availability", []) + ["[data-availability]", ".availability"]
+        ),
+        "condition": offers.get("itemCondition")
+        or _first_text(soup, ["[data-condition]", ".condition"]),
+        "review_count": int(aggregate["reviewCount"])
+        if aggregate.get("reviewCount")
+        else _number(_first_text(soup, selectors.get("review_count", []))),
         "rating": _number(aggregate.get("ratingValue")),
         "gtin": str(identifier) if identifier else None,
         "manufacturer_part_number": ld.get("mpn") or _first_text(soup, ["[data-mpn]", ".mpn"]),

@@ -25,8 +25,25 @@ def trend_signals(session: Session) -> list[dict]:
     if not rows:
         return []
 
-    frame = pd.DataFrame(rows, columns=["product_id", "title", "category", "source", "observed_at", "price", "availability", "review_count"])
-    frame["is_available"] = frame["availability"].fillna("").str.lower().str.contains("in ?stock|available|buy", regex=True)
+    frame = pd.DataFrame(
+        rows,
+        columns=[
+            "product_id",
+            "title",
+            "category",
+            "source",
+            "observed_at",
+            "price",
+            "availability",
+            "review_count",
+        ],
+    )
+    frame["is_available"] = (
+        frame["availability"]
+        .fillna("")
+        .str.lower()
+        .str.contains("in ?stock|available|buy", regex=True)
+    )
     results = []
     for product_id, group in frame.groupby("product_id"):
         ordered = group.sort_values("observed_at")
@@ -38,14 +55,17 @@ def trend_signals(session: Session) -> list[dict]:
         review_growth = int(reviews.iloc[-1] - reviews.iloc[0]) if len(reviews) >= 2 else 0
         source_count = int(group["source"].nunique())
         availability_rate = float(group["is_available"].mean())
-        score = round(min(100.0, source_count * 20 + availability_rate * 30 + min(max(review_growth, 0), 50)), 2)
+        score = round(
+            min(100.0, source_count * 20 + availability_rate * 30 + min(max(review_growth, 0), 50)),
+            2,
+        )
         results.append(
             {
                 "product_id": int(product_id),
                 "title": group["title"].iloc[0],
                 "category": group["category"].iloc[0],
                 "sources": sorted(group["source"].unique().tolist()),
-                "observation_count": int(len(group)),
+                "observation_count": len(group),
                 "review_growth": review_growth,
                 "price_change_pct": price_change_pct,
                 "availability_rate": availability_rate,

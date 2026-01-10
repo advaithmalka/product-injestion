@@ -19,3 +19,8 @@ def test_metrics_and_paginated_products_endpoints(tmp_path):
     assert products.json == {"items": [], "limit": 2, "offset": 0}
     assert metrics.status_code == 200
     assert b"marketplace_pages_total" in metrics.data
+
+
+def test_missing_route_remains_a_404(tmp_path):
+    app = create_app(f"sqlite:///{tmp_path / 'api.db'}")
+    assert app.test_client().get("/does-not-exist").status_code == 404

@@ -22,6 +22,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://marketplace:marketplace@db:5432/marketplace
       RAW_HTML_DIR: /app/data/raw
+      AUTO_CREATE_SCHEMA: "false"
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://llm-api.arc.vt.edu/api/v1}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
     volumes:
@@ -29,6 +30,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    command: ["sh", "-c", "alembic upgrade head && exec gunicorn --bind 0.0.0.0:8000 --workers 2 --access-logfile - marketplace.app:app"]
 
 volumes:
   postgres_data:
