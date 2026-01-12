@@ -68,7 +68,7 @@ curl http://127.0.0.1:5000/trends
 curl http://127.0.0.1:5000/runs
 ```
 
-Additional operational endpoints include `/metrics`, `/extractions`, and `/match-candidates`. Extraction evaluation can be run locally with:
+Additional operational endpoints include `/metrics`, `/extractions`, `/match-candidates`, and `/dead-letters`. Operators can resolve dead letters or accept/reject fuzzy match candidates through the corresponding POST endpoints. Extraction evaluation can be run locally with:
 
 ```bash
 marketplace-evaluate --gold examples/gold_extractions.json

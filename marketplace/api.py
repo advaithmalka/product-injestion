@@ -8,7 +8,13 @@ from werkzeug.exceptions import HTTPException
 
 from marketplace.config import settings
 from marketplace.db import initialize_database, session_scope
-from marketplace.models import ExtractionRun, IngestionRun, Product, ProductMatchCandidate
+from marketplace.models import (
+    DeadLetter,
+    ExtractionRun,
+    IngestionRun,
+    Product,
+    ProductMatchCandidate,
+)
 from marketplace.observability import configure_logging, metrics_payload
 from marketplace.trends import trend_signals
 
@@ -251,6 +257,86 @@ def create_app(database_url: str | None = None) -> Flask:
                     ],
                     "limit": limit,
                     "offset": offset,
+                }
+            )
+        finally:
+            session.close()
+
+    @app.get("/dead-letters")
+    @app.get("/api/v1/dead-letters")
+    def dead_letters():
+        limit, offset = _pagination()
+        session = session_scope(db_url)
+        try:
+            values = session.scalars(
+                select(DeadLetter)
+                .where(DeadLetter.resolved.is_(False))
+                .order_by(DeadLetter.created_at.desc())
+                .offset(offset)
+                .limit(limit)
+            ).all()
+            return jsonify(
+                {
+                    "items": [
+                        {
+                            "id": dead.id,
+                            "run_id": dead.ingestion_run_id,
+                            "page_key": dead.page_key,
+                            "source": dead.source,
+                            "source_item_id": dead.source_item_id,
+                            "url": dead.url,
+                            "error": dead.error,
+                            "resolved": dead.resolved,
+                            "created_at": dead.created_at.isoformat(),
+                        }
+                        for dead in values
+                    ],
+                    "limit": limit,
+                    "offset": offset,
+                }
+            )
+        finally:
+            session.close()
+
+    @app.post("/dead-letters/<int:dead_letter_id>/resolve")
+    @app.post("/api/v1/dead-letters/<int:dead_letter_id>/resolve")
+    def resolve_dead_letter(dead_letter_id: int):
+        from datetime import datetime, timezone
+
+        session = session_scope(db_url)
+        try:
+            dead = session.get(DeadLetter, dead_letter_id)
+            if not dead:
+                return jsonify({"error": "dead letter not found"}), 404
+            dead.resolved = True
+            dead.resolved_at = datetime.now(timezone.utc)
+            session.commit()
+            return jsonify({"id": dead.id, "resolved": True})
+        finally:
+            session.close()
+
+    @app.post("/match-candidates/<int:candidate_id>/decision")
+    @app.post("/api/v1/match-candidates/<int:candidate_id>/decision")
+    def decide_match_candidate(candidate_id: int):
+        payload = request.get_json(silent=True) or {}
+        decision = payload.get("decision")
+        if decision not in {"accepted", "rejected"}:
+            raise ValueError("decision must be 'accepted' or 'rejected'")
+        session = session_scope(db_url)
+        try:
+            candidate = session.get(ProductMatchCandidate, candidate_id)
+            if not candidate:
+                return jsonify({"error": "match candidate not found"}), 404
+            candidate.status = decision
+            if decision == "accepted":
+                candidate.source_listing.product_id = candidate.candidate_product_id
+            session.commit()
+            return jsonify(
+                {
+                    "id": candidate.id,
+                    "decision": candidate.status,
+                    "source_listing_id": candidate.source_listing_id,
+                    "candidate_product_id": candidate.candidate_product_id,
                 }
             )
         finally:
