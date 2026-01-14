@@ -2,7 +2,7 @@
   {
     "source": "ebay",
     "url": "https://example.test/ebay/aurora-headphones",
-    "html_path": "../tests/fixtures/ebay/aurora-headphones.html",
+    "html_path": "fixtures/ebay/aurora-headphones.html",
     "expected": {
       "title": "Aurora Wireless Headphones",
       "brand": "Aurora",
@@ -17,7 +17,7 @@
   {
     "source": "amazon",
     "url": "https://example.test/amazon/aurora-headphones",
-    "html_path": "../tests/fixtures/amazon/aurora-headphones.html",
+    "html_path": "fixtures/amazon/aurora-headphones.html",
     "expected": {
       "title": "Aurora Wireless Headphones",
       "brand": "Aurora",
