@@ -14,8 +14,12 @@ The first milestone is intentionally local and fixture-driven. Selenium supports
 - Product identity matching using identifiers, brand/model, and normalized titles
 - SQLite by default; PostgreSQL can be used through `DATABASE_URL`
 - Raw HTML evidence plus extraction metadata
+- Durable ingestion runs with retries, idempotency, page attempts, and dead-letter recovery
+- Prometheus metrics and structured JSON logs for ingestion/LLM operations
+- Fuzzy match candidates with operator accept/reject decisions
 - Flask endpoints for products, observations, extraction runs, and trend signals
 - Pandas-based trend signal calculation
+- Gold-set extraction evaluation with per-field accuracy
 
 ## Quickstart
 
@@ -62,10 +66,10 @@ The client accepts `OPENAI_BASE_URL`. ARC's web host (`https://llm.arc.vt.edu/`)
 ## API examples
 
 ```bash
-curl http://127.0.0.1:5000/health
-curl http://127.0.0.1:5000/products
-curl http://127.0.0.1:5000/trends
-curl http://127.0.0.1:5000/runs
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/products
+curl http://127.0.0.1:8000/trends
+curl http://127.0.0.1:8000/runs
 ```
 
 Additional operational endpoints include `/metrics`, `/extractions`, `/match-candidates`, and `/dead-letters`. Operators can resolve dead letters or accept/reject fuzzy match candidates through the corresponding POST endpoints. Extraction evaluation can be run locally with:
@@ -84,4 +88,4 @@ This measures 150,000 replayed fixture events, not 150,000 live requests or LLM 
 
 ## Resume-worthy extension path
 
-The next improvements should be measured rather than claimed: add a small labeled extraction set, report per-field validation accuracy, add retry/dead-letter metrics, and then introduce a queue or scheduled execution only when the batch workflow is reliable.
+The current milestone is deliberately a reliable batch system. Strong next extensions are a queue/worker boundary for parallel ingestion, scheduled runs, authenticated operational endpoints, CI with a real PostgreSQL service, and a larger legally captured evaluation set. The 150,000-event benchmark currently measures parser/normalizer replay, not 150,000 live requests or LLM calls.
