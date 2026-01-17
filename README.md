@@ -74,6 +74,14 @@ Additional operational endpoints include `/metrics`, `/extractions`, `/match-can
 marketplace-evaluate --gold examples/gold_extractions.json
 ```
 
+The parser/normalizer stage can be measured independently with a replay benchmark:
+
+```bash
+marketplace-benchmark --manifest examples/manifest.json --events 150000
+```
+
+This measures 150,000 replayed fixture events, not 150,000 live requests or LLM calls. Keep those boundaries explicit in resume claims.
+
 ## Resume-worthy extension path
 
 The next improvements should be measured rather than claimed: add a small labeled extraction set, report per-field validation accuracy, add retry/dead-letter metrics, and then introduce a queue or scheduled execution only when the batch workflow is reliable.
