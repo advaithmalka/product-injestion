@@ -292,11 +292,3 @@ The current milestone is a reliable, auditable batch system. Natural next steps 
 4. Add CI with a real PostgreSQL service, migration checks, and container smoke tests.
 5. Expand the labeled evaluation set and measure live-source quality only on permitted data.
 6. Deploy the Compose-shaped services to AWS EC2 or a managed container platform after local behavior is stable.
-
-## Architecture decisions
-
-The rationale for the main design choices is recorded in:
-
-- `docs/adr/0001-html-first-source-ingestion.md`
-- `docs/adr/0002-openai-compatible-llm-client.md`
-- `docs/adr/0003-dockerized-postgresql-runtime.md`
